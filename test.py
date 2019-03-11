@@ -16,7 +16,7 @@ opt.batchSize = 1
 opt.serial_batches = True  # no shuffle
 
 data_loader = CreateDataLoader(opt)
-dataset, _ = data_loader.load_data()
+_, dataset = data_loader.load_data()
 model = create_model(opt,data_loader.dataset)
 visualizer = Visualizer(opt)
 # create website

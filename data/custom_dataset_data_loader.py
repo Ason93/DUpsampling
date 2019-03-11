@@ -30,7 +30,7 @@ class CustomDatasetDataLoader(BaseDataLoader):
         if self.dataset_val != None:
             self.dataloader_val = torch.utils.data.DataLoader(
                 self.dataset_val,
-                batch_size=1,
+                batch_size=4,
                 shuffle=False,
                 num_workers=int(opt.nThreads))
         else:
