@@ -2,6 +2,7 @@ import os
 import numpy as np
 from utils import util
 import torch
+from datetime import datetime
 
 def load_pretrained_model(net, state_dict, strict=True):
     """Copies parameters and buffers from :attr:`state_dict` into
@@ -57,6 +58,7 @@ class BaseModel():
         return 'BaseModel'
 
     def initialize(self, opt):
+        TIMESTAMP = "{0:%Y-%m-%dT%H-%M-%S/}".format(datetime.now())
         self.opt = opt
         self.training = opt.isTrain
         self.gpu_ids = opt.gpu_ids
@@ -64,7 +66,7 @@ class BaseModel():
         self.num_classes = opt.label_nc
         self.Tensor = torch.cuda.FloatTensor if self.gpu_ids else torch.Tensor
         self.save_dir = os.path.join(opt.checkpoints_dir, opt.name)
-        self.tensorborad_dir = os.path.join(self.opt.checkpoints_dir, 'tensorboard', opt.dataset_mode)
+        self.tensorborad_dir = os.path.join(self.opt.checkpoints_dir, 'tensorboard', opt.dataset_mode + TIMESTAMP)
         self.model_dir = os.path.join(self.opt.checkpoints_dir, self.opt.name, 'model')
         util.mkdirs([self.tensorborad_dir, self.model_dir])
 
