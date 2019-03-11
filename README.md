@@ -16,9 +16,11 @@ This repo is an unofficial pytorch implementation of CVPR19 paper: Decoders Matt
 
 ### Dataset and pretrained model
 
-Plesae download VOC12_aug dataset and unzip the dataset into data, and modify your configuration in options/base options.py.
+Plesae download VOC12_aug dataset and unzip the dataset into `data` folder.
 
 Please download MIT imagenet pretrained [resnet50-imagenet.pth](http://sceneparsing.csail.mit.edu/model/pretrained_resnet/resnet50-imagenet.pth), and put it into `checkpoints` folder.
+
+Please modify your configuration in `options/base options.py`.
 
 ### Usage
 
