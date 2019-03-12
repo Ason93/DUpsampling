@@ -34,7 +34,6 @@ bash train.sh
 
 ### To do
 
-* Add softmax with temperature
 * Modify the network and improve the accuracy
 * Add Synchronous BN
 

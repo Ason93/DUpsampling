@@ -217,6 +217,7 @@ class Decoder(nn.Module):
 
         self.dupsample = DUpsampling(256, 16, num_class=21)
         self._init_weight()
+        self.T = torch.nn.Parameter(torch.Tensor([1.00]))
 
     def forward(self, x, low_level_feature):
         low_level_feature = self.conv1(low_level_feature)
@@ -234,6 +235,7 @@ class Decoder(nn.Module):
         x_4_cat = self.conv4(x_4_cat)
 
         out = self.dupsample(x_4_cat)
+        out = out / self.T
         return out
 
     def _init_weight(self):
