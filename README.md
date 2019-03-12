@@ -31,13 +31,17 @@ bash train.sh
 ### Segmentation results on val set
 ![](/image/image.png)
 
-
 ### To do
 
-* Modify the network and improve the accuracy.
-* Add Synchronous BN.
-* Debug and report the performance.
-* Improve Code Style.
+- [x] Add softmax function with temperature
+
+- [ ] Modify the network and improve the accuracy.
+
+- [ ] Add Synchronous BN.
+
+- [ ] Debug and report the performance.
+
+- [ ] Improve code style and show more details.
 
 under construction...
 
