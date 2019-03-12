@@ -34,8 +34,10 @@ bash train.sh
 
 ### To do
 
-* Modify the network and improve the accuracy
-* Add Synchronous BN
+* Modify the network and improve the accuracy.
+* Add Synchronous BN.
+* Debug and report the performance.
+* Improve Code Style.
 
 under construction...
 
