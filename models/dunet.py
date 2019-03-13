@@ -65,26 +65,30 @@ def conv3x3(in_planes, out_planes, stride=1):
 class DUpsampling(nn.Module):
     def __init__(self, inplanes, scale, num_class=21, pad=0):
         super(DUpsampling, self).__init__()
-        self.conv1 = nn.Conv2d(inplanes, num_class * scale * scale, kernel_size=1, padding = pad,bias=False)
+        ## W matrix
+        self.conv_w = nn.Conv2d(inplanes, num_class * scale * scale, kernel_size=1, padding = pad,bias=False)
+        ## P matrix
+        self.conv_p = nn.Conv2d(num_class * scale * scale, inplanes, kernel_size=1, padding = pad,bias=False)
+
         self.scale = scale
     
     def forward(self, x):
-        x = self.conv1(x)
+        x = self.conv_w(x)
         N, C, H, W = x.size()
 
-        # N, H, W, C
-        x_permuted = x.permute(0, 2, 3, 1) 
+        # N, W, H, C
+        x_permuted = x.permute(0, 3, 2, 1) 
 
-        # N, H, W*scale, C/scale
-        x_permuted = x_permuted.contiguous().view((N, H, W * self.scale, int(C / (self.scale))))
+        # N, W, H*scale, C/scale
+        x_permuted = x_permuted.contiguous().view((N, W, H * self.scale, int(C / (self.scale))))
 
-        # N, W*scale,H, C/scale
+        # N, H*scale, W, C/scale
         x_permuted = x_permuted.permute(0, 2, 1, 3)
-        # N, W*scale,H*scale, C/(scale**2)
+        # N, H*scale, W*scale, C/(scale**2)
         x_permuted = x_permuted.contiguous().view((N, W * self.scale, H * self.scale, int(C / (self.scale * self.scale))))
 
-        # N,C/(scale**2),W*scale,H*scale
-        x = x_permuted.permute(0, 3, 2, 1)
+        # N, C/(scale**2), H*scale, W*scale
+        x = x_permuted.permute(0, 3, 1, 2)
         
         return x
         
@@ -267,7 +271,12 @@ class DUNet_Solver(BaseModel):
         #self.device =
         if self.opt.isTrain:
             self.criterionSeg = torch.nn.CrossEntropyLoss(ignore_index=255).cuda()
-            self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.opt.lr, momentum=self.opt.momentum,
+            self.optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, self.model.parameters()), 
+                                                    lr=self.opt.lr, momentum=self.opt.momentum,
+                                                    weight_decay=self.opt.wd)
+            params_w = list(self.model.decoder.dupsample.conv_w.parameters())
+            params_p = list(self.model.decoder.dupsample.conv_p.parameters())
+            self.optimizer_w = torch.optim.SGD(params_w+params_p, lr=self.opt.lr, momentum=self.opt.momentum,
                                              weight_decay=self.opt.wd)
             self.old_lr = self.opt.lr
             self.averageloss = []
@@ -286,8 +295,41 @@ class DUNet_Solver(BaseModel):
         if not self.isTrain and self.opt.loaded_model != ' ':
             self.load_pretrained_network(self.model, self.opt.loaded_model, strict=True)
             print('test model load sucess!')
+    def pre_compute_W(self, i, data):
+        self.model.zero_grad()
+        self.seggt = data[1].cuda()
+        N, H, W = self.seggt.size()
+        C = opt.label_nc
+        # N, C, H, W
+        self.seggt_onehot = torch.zeros(N, C, H, W).scatter_(1.0, self.seggt, 1.0)
+        # N, H, W, C
+        self.seggt_onehot = self.seggt_onehot.permute(0, 2, 3, 1)
+        # N, H, W/sacle, C*scale
+        self.seggt_onehot = self.seggt_onehot.contiguous().view((N, H, 
+                                        int(W / 16), C * 16))
+        # N, W/sacle, H, C*scale
+        self.seggt_onehot = self.seggt_onehot.permute(0, 2, 1, 3)
 
-    def forward(self, data, isTrain=True):
+        self.seggt_onehot = self.seggt_onehot.contiguous().view((N, int(W / 16), 
+                                        int(H / 16), C * 16 * 16))
+
+        self.seggt_onehot = self.seggt_onehot.permute(0, 3, 2, 1)
+
+        self.seggt_onehot_reconstructed = self.model.decoder.dupsample.conv_w(
+                                            self.model.decoder.dupsample.conv_p(self.seggt_onehot))
+        self.reconstruct_loss = 1.0 / B * torch.sum(torch.pow(self.seggt_onehot - 
+                                            self.seggt_onehot_reconstructed, 2))
+        self.reconstruct_loss.backward()
+        self.optimizer_w.step()
+        if i % 20 == 0
+            print ('pre_compute_loss: %f' % (reconstruct_loss.data[0]))
+
+    def forward(self, data, isTrain=True, pre_compute_flag=0):
+
+        if pre_compute_flag==1:
+            self.optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, self.model.parameters()), 
+                                                    lr=self.opt.lr, momentum=self.opt.momentum,
+                                                    weight_decay=self.opt.wd)
         self.model.zero_grad()
 
         self.image = data[0].cuda()
@@ -324,6 +366,10 @@ class DUNet_Solver(BaseModel):
         for m in self.model.modules():
             if isinstance(m, nn.BatchNorm2d):
                 m.eval()
+
+    def freeze_w(self):
+        for param in self.model.decoder.dupsample.parameters():
+            param.requires_grad = False
             
     def get_visuals(self, step):
         ############## Display results and errors ############
