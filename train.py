@@ -37,15 +37,17 @@ print('#training images = %d' % dataset_size)
 model = create_model(opt, dataset.dataset)
 visualizer = Visualizer(opt)
 total_steps = (start_epoch - 1) * dataset_size + epoch_iter
-pre_compute_flag=0
+pre_compute_flag = 0
 
+print("Precompute weight for 5 epoches")
 for pretrain_epoch in range(5):
     model.model.train()
     model.freeze_bn()
     for i, data in enumerate(dataset, start=epoch_iter):
+        print("Epoch %d, %d"%(pretrain_epoch, i))
         model.pre_compute_W(i, data)
 
-pre_compute_flag=1
+pre_compute_flag = 1
 
 for epoch in range(start_epoch, opt.nepochs):
     epoch_start_time = time.time()
@@ -53,12 +55,13 @@ for epoch in range(start_epoch, opt.nepochs):
         epoch_iter = epoch_iter % dataset_size
     model.model.train()
     model.freeze_bn()
+    model.freeze_w()
     for i, data in enumerate(dataset, start=epoch_iter):
         iter_start_time = time.time()
         total_steps += opt.batchSize
         epoch_iter += opt.batchSize
 # add some commits
-        model.forward(data, pre_compute_flag)
+        model.forward(data, True, pre_compute_flag)
         pre_compute_flag = 0
         model.backward(total_steps, opt.nepochs * dataset.__len__() * opt.batchSize + 1)
         if total_steps % opt.display_freq == 0:

@@ -276,8 +276,7 @@ class DUNet_Solver(BaseModel):
                                                     weight_decay=self.opt.wd)
             params_w = list(self.model.decoder.dupsample.conv_w.parameters())
             params_p = list(self.model.decoder.dupsample.conv_p.parameters())
-            self.optimizer_w = torch.optim.SGD(params_w+params_p, lr=self.opt.lr, momentum=self.opt.momentum,
-                                             weight_decay=self.opt.wd)
+            self.optimizer_w = torch.optim.SGD(params_w+params_p, lr=self.opt.lr, momentum=self.opt.momentum)
             self.old_lr = self.opt.lr
             self.averageloss = []
 
@@ -289,7 +288,7 @@ class DUNet_Solver(BaseModel):
             self.counter = 0
 
         self.model.cuda()
-        self.model = nn.DataParallel(self.model, device_ids=opt.gpu_ids)
+
         self.normweightgrad=0.
 
         if not self.isTrain and self.opt.loaded_model != ' ':
@@ -297,11 +296,14 @@ class DUNet_Solver(BaseModel):
             print('test model load sucess!')
     def pre_compute_W(self, i, data):
         self.model.zero_grad()
-        self.seggt = data[1].cuda()
+        self.seggt = data[1]
         N, H, W = self.seggt.size()
-        C = opt.label_nc
+        C = self.opt.label_nc
         # N, C, H, W
-        self.seggt_onehot = torch.zeros(N, C, H, W).scatter_(1.0, self.seggt, 1.0)
+        self.seggt = torch.unsqueeze(self.seggt, dim=1)
+
+        self.seggt[self.seggt == 255] = 0
+        self.seggt_onehot = torch.zeros(N, C, H, W).scatter_(1, self.seggt.long(), 1)
         # N, H, W, C
         self.seggt_onehot = self.seggt_onehot.permute(0, 2, 3, 1)
         # N, H, W/sacle, C*scale
@@ -315,26 +317,29 @@ class DUNet_Solver(BaseModel):
 
         self.seggt_onehot = self.seggt_onehot.permute(0, 3, 2, 1)
 
+        self.seggt_onehot = self.seggt_onehot.cuda()
+
         self.seggt_onehot_reconstructed = self.model.decoder.dupsample.conv_w(
                                             self.model.decoder.dupsample.conv_p(self.seggt_onehot))
-        self.reconstruct_loss = 1.0 / B * torch.sum(torch.pow(self.seggt_onehot - 
+        self.reconstruct_loss = torch.mean(torch.pow(self.seggt_onehot -
                                             self.seggt_onehot_reconstructed, 2))
         self.reconstruct_loss.backward()
         self.optimizer_w.step()
-        if i % 20 == 0
-            print ('pre_compute_loss: %f' % (reconstruct_loss.data[0]))
+        if i % 20 == 0:
+            print ('pre_compute_loss: %f' % (self.reconstruct_loss.data[0]))
 
     def forward(self, data, isTrain=True, pre_compute_flag=0):
 
-        if pre_compute_flag==1:
+        if pre_compute_flag == 1:
             self.optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, self.model.parameters()), 
                                                     lr=self.opt.lr, momentum=self.opt.momentum,
                                                     weight_decay=self.opt.wd)
+            self.model = nn.DataParallel(self.model, device_ids=self.opt.gpu_ids)
+            print(self.model)
         self.model.zero_grad()
 
         self.image = data[0].cuda()
         self.image.requires_grad = not isTrain
-
 
         if data[1] is not None:
             self.seggt = data[1].cuda()
