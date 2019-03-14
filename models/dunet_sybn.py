@@ -9,6 +9,9 @@ from utils.util import *
 from collections import OrderedDict
 from tensorboardX import SummaryWriter
 
+from libs import InPlaceABN, InPlaceABNSync
+BatchNorm2d = functools.partial(InPlaceABNSync, activation='none')
+
 affine_par = True
 def load_pretrained_model(net, state_dict, strict=True):
     """Copies parameters and buffers from :attr:`state_dict` into
@@ -75,7 +78,6 @@ class DUpsampling(nn.Module):
     def forward(self, x):
         x = self.conv_w(x)
         N, C, H, W = x.size()
-
         # N, W, H, C
         x_permuted = x.permute(0, 3, 2, 1) 
 
@@ -98,12 +100,12 @@ class Bottleneck(nn.Module):
     def __init__(self, inplanes, planes, stride=1, dilation=1, downsample=None, fist_dilation=1, multi_grid=1):
         super(Bottleneck, self).__init__()
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(planes)
+        self.bn1 = BatchNorm2d(planes)
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride,
                             padding=dilation * multi_grid, dilation=dilation * multi_grid, bias=False)
-        self.bn2 = nn.BatchNorm2d(planes)
+        self.bn2 = BatchNorm2d(planes)
         self.conv3 = nn.Conv2d(planes, planes * 4, kernel_size=1, bias=False)
-        self.bn3 = nn.BatchNorm2d(planes * 4)
+        self.bn3 = BatchNorm2d(planes * 4)
         self.relu = nn.ReLU(inplace=False)
         self.relu_inplace = nn.ReLU(inplace=True)
         self.downsample = downsample
@@ -136,16 +138,16 @@ class ResNet(nn.Module):
         self.inplanes = 128
         super(ResNet, self).__init__()
         self.conv1 = conv3x3(3, 64, stride=2)
-        self.bn1 = nn.BatchNorm2d(64)
+        self.bn1 = BatchNorm2d(64)
         self.relu1 = nn.ReLU(inplace=False)
         self.conv2 = conv3x3(64, 64)
-        self.bn2 = nn.BatchNorm2d(64)
+        self.bn2 = BatchNorm2d(64)
         self.relu2 = nn.ReLU(inplace=False)
         self.conv3 = conv3x3(64, 128)
         # self.conv3 = DeformConv(64, 128, (3, 3), stride=1, padding=1, num_deformable_groups=1)
         # self.conv3_deform = conv3x3(64, 2 * 3 * 3)
 
-        self.bn3 = nn.BatchNorm2d(128)
+        self.bn3 = BatchNorm2d(128)
         self.relu3 = nn.ReLU(inplace=False)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
@@ -162,7 +164,7 @@ class ResNet(nn.Module):
             downsample = nn.Sequential(
                 nn.Conv2d(self.inplanes, planes * block.expansion,
                           kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(planes * block.expansion, affine=affine_par))
+                BatchNorm2d(planes * block.expansion, affine=affine_par))
 
         layers = []
         generate_multi_grid = lambda index, grids: grids[index % len(grids)] if isinstance(grids, tuple) else 1
@@ -212,10 +214,10 @@ class Decoder(nn.Module):
         # self.conv2 = SeparableConv2d(304, 256, kernel_size=3)
         # self.conv3 = SeparableConv2d(256, 256, kernel_size=3)
         self.conv2 = nn.Conv2d(2096, 256, kernel_size=3, padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(256)
+        self.bn2 = BatchNorm2d(256)
         self.dropout2 = nn.Dropout(0.5)
         self.conv3 = nn.Conv2d(256, 256, kernel_size=3, padding=1, bias=False)
-        self.bn3 = nn.BatchNorm2d(256)
+        self.bn3 = BatchNorm2d(256)
         self.dropout3 = nn.Dropout(0.1)
         self.conv4 = nn.Conv2d(256, 256, kernel_size=1)
 
@@ -246,7 +248,7 @@ class Decoder(nn.Module):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 torch.nn.init.kaiming_normal_(m.weight)
-            elif isinstance(m, nn.BatchNorm2d):
+            elif isinstance(m, BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
 
@@ -329,7 +331,7 @@ class DUNet_Solver(BaseModel):
         if i % 20 == 0:
             print ('pre_compute_loss: %f' % (self.reconstruct_loss.data[0]))
 
-    def forward(self, data, isTrain=True, pre_compute_flag=0):
+    def forward(self, data, isTrain=True, pre_compute_flag=0, accum_steps=1):
 
         if pre_compute_flag == 1:
             self.optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, self.model.parameters()), 
@@ -337,7 +339,6 @@ class DUNet_Solver(BaseModel):
                                                     weight_decay=self.opt.wd)
             self.model = nn.DataParallel(self.model, device_ids=self.opt.gpu_ids)
             print(self.model)
-        self.model.zero_grad()
 
         self.image = data[0].cuda()
         self.image.requires_grad = not isTrain
@@ -351,8 +352,8 @@ class DUNet_Solver(BaseModel):
         self.segpred = self.model(self.image)
 
         if self.opt.isTrain:
-            self.loss = self.criterionSeg(self.segpred, self.seggt.long())
-            self.averageloss += [self.loss.data[0]]
+            self.loss = self.criterionSeg(self.segpred, self.seggt.long())/accum_steps
+            self.averageloss += [self.loss.data[0]*accum_steps]
 
         segpred = self.segpred.max(1, keepdim=True)[1]
         self.seggt=torch.unsqueeze(self.seggt, dim=1)
@@ -362,16 +363,13 @@ class DUNet_Solver(BaseModel):
     def backward(self, step, total_step):
         self.loss.backward()
         self.optimizer.step()
+        self.optimizer.zero_grad()
 
         if step % self.opt.iterSize == 0:
             self.update_learning_rate(step, total_step)
             trainingavgloss = np.mean(self.averageloss)
             if self.opt.verbose:
                 print ('  Iter: %d, Loss: %f' % (step, trainingavgloss) )
-    def freeze_bn(self):
-        for m in self.model.modules():
-            if isinstance(m, nn.BatchNorm2d):
-                m.eval()
 
     def freeze_w(self):
         for param in self.model.decoder.dupsample.parameters():

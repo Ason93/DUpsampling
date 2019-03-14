@@ -10,10 +10,10 @@ class BaseOptions():
 
     def initialize(self):
         # experiment specifics
-        self.parser.add_argument('--name', type=str, default='dunet', help='name of the experiment. It decides where to store samples and models')
+        self.parser.add_argument('--name', type=str, default='dunet_sybn', help='name of the experiment. It decides where to store samples and models')
         self.parser.add_argument('--gpu_ids', type=str, default='0, 1', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
         self.parser.add_argument('--checkpoints_dir', type=str, default='./checkpoints', help='models are saved here')
-        self.parser.add_argument('--model', type=str, default='DUNet', help='model: DUNet')
+        self.parser.add_argument('--model', type=str, default='DUNet_sybn', help='model: DUNet')
         self.parser.add_argument('--pretrained_model', type=str, default='./checkpoints/resnet50-imagenet.pth', help='pretrained_model')
         self.parser.add_argument('--which_epoch', type=str, default='latest', help='which epoch to load? set to latest to use latest cached model')
 
