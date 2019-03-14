@@ -40,6 +40,7 @@ pre_compute_flag = 0
 
 print("Precompute weight for 5 epoches")
 for pretrain_epoch in range(5):
+    print('epoch: %d'%(pretrain_epoch))
     model.model.train()
     for i, data in enumerate(dataset, start=epoch_iter):
         model.pre_compute_W(i, data)
