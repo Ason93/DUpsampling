@@ -103,6 +103,7 @@ If you have any question, feel free to contact me or submit issue.
 ### Thanks to the Third Party Libs
 [inplace_abn](https://github.com/mapillary/inplace_abn) - 
 [Pytorch-Deeplab](https://github.com/speedinghzl/Pytorch-Deeplab) - 
-[PyTorch-Encoding](https://github.com/zhanghang1989/PyTorch-Encoding)
-[pix2pix](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix)
+[PyTorch-Encoding](https://github.com/zhanghang1989/PyTorch-Encoding)-
+[pix2pix](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix)-
+[Pytorch-segmentation-toolbox](https://github.com/speedinghzl/pytorch-segmentation-toolbox)
 
