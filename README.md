@@ -1,6 +1,14 @@
 # DUpsampling
 This repo is an unofficial pytorch implementation of CVPR19 paper: Decoders Matter for Semantic Segmentation: Data-Dependent Decoding Enables Flexible Feature Aggregation: https://arxiv.org/abs/1903.02120
 
+Most recurrent update:
+
+2019.03.14 - Add Synchronous BN operation and gradient accumulate to save gpu memory.
+
+2019.03.13 - Add Weight pre-compute process.
+
+2019.03.12 - Add softmax with temperature.
+
 ### Installation
 
 * pytorch==0.4.1
@@ -24,11 +32,56 @@ Please modify your configuration in `options/base options.py`.
 
 ### Usage
 
-```
-bash train.sh
+if you want to use the model with normal batch norm operation:
+
+```bash
+python train.py \
+--name dunet \
+--gpu_ids 0,1 \
+--model DUNet_sybn \
+--pretrained_model ./checkpoints/resnet50-imagenet.pth \
+--batchSize 16 \
+--dataroot ./data/voc_12aug \
+--train_list_path ./data/train_aug.txt \
+--val_list_path ./data/val.txt \
+--accum_steps 3 \
+--nepochs 100 \
+--tf_log --verbose
 ```
 
+if you want to use Synchronous BN operation with CUDA implementation, which must be compiled with the following commands:
+
+```bash
+cd libs
+sh build.sh
+python build.py
+```
+
+The `build.sh` script assumes that the `nvcc` compiler is available in the current system search path.
+The CUDA kernels are compiled for `sm_50`, `sm_52` and `sm_61` by default.
+To change this (_e.g._ if you are using a Kepler GPU), please edit the `CUDA_GENCODE` variable in `build.sh`.
+
+Run the following command to run:
+
+```bash
+python train.py \
+--name dunet_sybn \
+--gpu_ids 0,1 \
+--model DUNet_sybn \
+--pretrained_model ./checkpoints/resnet50-imagenet.pth \
+--batchSize 16 \
+--dataroot ./data/voc_12aug \
+--train_list_path ./data/train_aug.txt \
+--val_list_path ./data/val.txt \
+--accum_steps 3 \
+--nepochs 100 \
+--tf_log --verbose
+```
+
+
+
 ### Segmentation results on val set
+
 ![](/image/image.png)
 
 ### To do
@@ -37,7 +90,7 @@ bash train.sh
 
 - [ ] Modify the network and improve the accuracy.
 
-- [ ] Add Synchronous BN.
+- [x] Add Synchronous BN.
 
 - [ ] Debug and report the performance.
 
@@ -47,4 +100,9 @@ under construction...
 
 If you have any question, feel free to contact me or submit issue.
 
+### Thanks to the Third Party Libs
+[inplace_abn](https://github.com/mapillary/inplace_abn) - 
+[Pytorch-Deeplab](https://github.com/speedinghzl/Pytorch-Deeplab) - 
+[PyTorch-Encoding](https://github.com/zhanghang1989/PyTorch-Encoding)
+[pix2pix](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix)
 
