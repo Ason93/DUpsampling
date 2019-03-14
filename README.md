@@ -38,7 +38,7 @@ if you want to use the model with normal batch norm operation:
 python train.py \
 --name dunet \
 --gpu_ids 0,1 \
---model DUNet_sybn \
+--model DUNet \
 --pretrained_model ./checkpoints/resnet50-imagenet.pth \
 --batchSize 16 \
 --dataroot ./data/voc_12aug \
