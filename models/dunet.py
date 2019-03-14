@@ -330,14 +330,14 @@ class DUNet_Solver(BaseModel):
             print ('pre_compute_loss: %f' % (self.reconstruct_loss.data[0]))
 
     def forward(self, data, isTrain=True, pre_compute_flag=0):
+        accum_steps = self.opt.accum_steps
 
         if pre_compute_flag == 1:
-            self.optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, self.model.parameters()), 
+            self.optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, self.model.parameters()),
                                                     lr=self.opt.lr, momentum=self.opt.momentum,
                                                     weight_decay=self.opt.wd)
             self.model = nn.DataParallel(self.model, device_ids=self.opt.gpu_ids)
             print(self.model)
-        self.model.zero_grad()
 
         self.image = data[0].cuda()
         self.image.requires_grad = not isTrain
@@ -351,16 +351,15 @@ class DUNet_Solver(BaseModel):
         self.segpred = self.model(self.image)
 
         if self.opt.isTrain:
-            self.loss = self.criterionSeg(self.segpred, self.seggt.long())
-            self.averageloss += [self.loss.data[0]]
+            self.loss = self.criterionSeg(self.segpred, self.seggt.long())/accum_steps
+            self.averageloss += [self.loss.data[0]*accum_steps]
 
         segpred = self.segpred.max(1, keepdim=True)[1]
         self.seggt=torch.unsqueeze(self.seggt, dim=1)
-
+        self.loss.backward()
         return self.seggt, segpred
 
     def backward(self, step, total_step):
-        self.loss.backward()
         self.optimizer.step()
 
         if step % self.opt.iterSize == 0:

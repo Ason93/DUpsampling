@@ -8,6 +8,7 @@ import shutil
 from utils.util import *
 from collections import OrderedDict
 from tensorboardX import SummaryWriter
+import functools
 
 from libs import InPlaceABN, InPlaceABNSync
 BatchNorm2d = functools.partial(InPlaceABNSync, activation='none')
@@ -248,9 +249,9 @@ class Decoder(nn.Module):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 torch.nn.init.kaiming_normal_(m.weight)
-            elif isinstance(m, BatchNorm2d):
-                m.weight.data.fill_(1)
-                m.bias.data.zero_()
+            # elif isinstance(m, BatchNorm2d):
+            #     m.weight.data.fill_(1)
+            #     m.bias.data.zero_()
 
 class DUNet(nn.Module):
     def __init__(self, encoder_pretrain = False, model_path = ' ', num_class=21):
@@ -331,7 +332,8 @@ class DUNet_Solver(BaseModel):
         if i % 20 == 0:
             print ('pre_compute_loss: %f' % (self.reconstruct_loss.data[0]))
 
-    def forward(self, data, isTrain=True, pre_compute_flag=0, accum_steps=1):
+    def forward(self, data, isTrain=True, pre_compute_flag=0):
+        accum_steps = self.opt.accum_steps
 
         if pre_compute_flag == 1:
             self.optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, self.model.parameters()), 
@@ -350,7 +352,6 @@ class DUNet_Solver(BaseModel):
 
         input_size = self.image.size()
         self.segpred = self.model(self.image)
-
         if self.opt.isTrain:
             self.loss = self.criterionSeg(self.segpred, self.seggt.long())/accum_steps
             self.averageloss += [self.loss.data[0]*accum_steps]
@@ -358,10 +359,10 @@ class DUNet_Solver(BaseModel):
         segpred = self.segpred.max(1, keepdim=True)[1]
         self.seggt=torch.unsqueeze(self.seggt, dim=1)
 
+        self.loss.backward()
         return self.seggt, segpred
 
     def backward(self, step, total_step):
-        self.loss.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
 

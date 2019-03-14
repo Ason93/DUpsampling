@@ -41,12 +41,10 @@ pre_compute_flag = 0
 print("Precompute weight for 5 epoches")
 for pretrain_epoch in range(5):
     model.model.train()
-    model.freeze_bn()
     for i, data in enumerate(dataset, start=epoch_iter):
         model.pre_compute_W(i, data)
 
 pre_compute_flag = 1
-model.freeze_bn()
 
 for epoch in range(start_epoch, opt.nepochs):
     epoch_start_time = time.time()
@@ -55,13 +53,13 @@ for epoch in range(start_epoch, opt.nepochs):
     model.model.train()
     for i, data in enumerate(dataset, start=epoch_iter):
         iter_start_time = time.time()
-# add some commits
         model.forward(data, True, pre_compute_flag)
         pre_compute_flag = 0
-        if((i+1)%opt.accum_steps)==0:
-            model.backward(total_steps, opt.nepochs * dataset.__len__() * opt.batchSize + 1)
+        if((i+1)%opt.accum_steps) == 0:
+
             total_steps += opt.batchSize * opt.accum_steps
             epoch_iter += opt.batchSize * opt.accum_steps
+            model.backward(total_steps, opt.nepochs * dataset.__len__() * opt.batchSize + 1)
         if total_steps % opt.display_freq == 0:
             visuals = model.get_visuals(total_steps)
             visualizer.display_current_results(visuals, epoch, total_steps)
@@ -69,6 +67,7 @@ for epoch in range(start_epoch, opt.nepochs):
             print('saving the latest model (epoch %d, total_steps %d)' % (epoch, total_steps))
             model.save('latest')
             np.savetxt(iter_path, (epoch, epoch_iter), delimiter=',', fmt='%d')
+
         # print time.time()-iter_start_time
 
     # end of epoch
