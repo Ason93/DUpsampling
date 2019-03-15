@@ -44,7 +44,7 @@ python train.py \
 --dataroot ./data/voc_12aug \
 --train_list_path ./data/train_aug.txt \
 --val_list_path ./data/val.txt \
---accum_steps 3 \
+--accum_steps 1 \
 --nepochs 100 \
 --tf_log --verbose
 ```
@@ -73,7 +73,7 @@ python train.py \
 --dataroot ./data/voc_12aug \
 --train_list_path ./data/train_aug.txt \
 --val_list_path ./data/val.txt \
---accum_steps 3 \
+--accum_steps 1 \
 --nepochs 100 \
 --tf_log --verbose
 ```

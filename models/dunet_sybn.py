@@ -136,24 +136,21 @@ class Bottleneck(nn.Module):
 
 class ResNet(nn.Module):
     def __init__(self, block, layers):
-        self.inplanes = 128
+        self.inplanes = 64
         super(ResNet, self).__init__()
-        self.conv1 = conv3x3(3, 64, stride=2)
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
+                               bias=False)
         self.bn1 = BatchNorm2d(64)
         self.relu1 = nn.ReLU(inplace=False)
-        self.conv2 = conv3x3(64, 64)
-        self.bn2 = BatchNorm2d(64)
-        self.relu2 = nn.ReLU(inplace=False)
-        self.conv3 = conv3x3(64, 128)
-        # self.conv3 = DeformConv(64, 128, (3, 3), stride=1, padding=1, num_deformable_groups=1)
-        # self.conv3_deform = conv3x3(64, 2 * 3 * 3)
-
-        self.bn3 = BatchNorm2d(128)
-        self.relu3 = nn.ReLU(inplace=False)
+        # self.conv2 = conv3x3(64, 64)
+        # self.bn2 = BatchNorm2d(64)
+        # self.relu2 = nn.ReLU(inplace=False)
+        # self.conv3 = conv3x3(64, 128)
+        #
+        # self.bn3 = BatchNorm2d(128)
+        # self.relu3 = nn.ReLU(inplace=False)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
-        self.relu = nn.ReLU(inplace=False)
-        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1, ceil_mode=False)  # change
         self.layer1 = self._make_layer(block, 64, layers[0])
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
@@ -181,8 +178,6 @@ class ResNet(nn.Module):
     def forward(self, x):
         # input 528 * 528
         x = self.relu1(self.bn1(self.conv1(x)))  # 264 * 264
-        x = self.relu2(self.bn2(self.conv2(x)))  # 264 * 264
-        x = self.relu3(self.bn3(self.conv3(x)))  # 264 * 264
         
         x_13 = x
         x = self.maxpool(x)  # 66 * 66
@@ -209,20 +204,18 @@ class Encoder(nn.Module):
 class Decoder(nn.Module):
     def __init__(self, num_class, bn_momentum=0.1):
         super(Decoder, self).__init__()
-        self.conv1 = nn.Conv2d(1152, 48, kernel_size=1, bias=False)
+        self.conv1 = nn.Conv2d(1088, 48, kernel_size=1, bias=False)
         self.bn1 = nn.BatchNorm2d(48)
         self.relu = nn.ReLU()
-        # self.conv2 = SeparableConv2d(304, 256, kernel_size=3)
-        # self.conv3 = SeparableConv2d(256, 256, kernel_size=3)
         self.conv2 = nn.Conv2d(2096, 256, kernel_size=3, padding=1, bias=False)
         self.bn2 = BatchNorm2d(256)
         self.dropout2 = nn.Dropout(0.5)
         self.conv3 = nn.Conv2d(256, 256, kernel_size=3, padding=1, bias=False)
         self.bn3 = BatchNorm2d(256)
         self.dropout3 = nn.Dropout(0.1)
-        self.conv4 = nn.Conv2d(256, 256, kernel_size=1)
+        self.conv4 = nn.Conv2d(256, 64, kernel_size=1)
 
-        self.dupsample = DUpsampling(256, 16, num_class=21)
+        self.dupsample = DUpsampling(64, 16, num_class=21)
         self._init_weight()
         self.T = torch.nn.Parameter(torch.Tensor([1.00]))
 
@@ -358,19 +351,17 @@ class DUNet_Solver(BaseModel):
 
         segpred = self.segpred.max(1, keepdim=True)[1]
         self.seggt=torch.unsqueeze(self.seggt, dim=1)
-
-        self.loss.backward()
+        if isTrain:
+            self.loss.backward()
         return self.seggt, segpred
 
     def backward(self, step, total_step):
         self.optimizer.step()
         self.optimizer.zero_grad()
-
         if step % self.opt.iterSize == 0:
             self.update_learning_rate(step, total_step)
             trainingavgloss = np.mean(self.averageloss)
-            if self.opt.verbose:
-                print ('  Iter: %d, Loss: %f' % (step, trainingavgloss) )
+            print ('  Iter: %d, Loss: %f' % (step, trainingavgloss))
 
     def freeze_w(self):
         for param in self.model.decoder.dupsample.parameters():
@@ -380,8 +371,6 @@ class DUNet_Solver(BaseModel):
         ############## Display results and errors ############
         if self.opt.isTrain:
             self.trainingavgloss = np.mean(self.averageloss)
-            if self.opt.verbose:
-                print ('  Iter: %d, Loss: %f' % (step, self.trainingavgloss) )
             self.writer.add_scalar(self.opt.name+'/trainingloss/', self.trainingavgloss, step)
             self.averageloss = []
 

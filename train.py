@@ -94,7 +94,7 @@ for epoch in range(start_epoch, opt.nepochs):
                 Accuracy Class: {1}
                 Mean IU: {2}
                 FWAV Accuracy: {3}'''.format(*metrics))
-        model.update_tensorboard(metrics,total_steps)
+        model.update_tensorboard(metrics, total_steps)
     iter_end_time = time.time()
 
     print('End of epoch %d / %d \t Time Taken: %d sec' %
