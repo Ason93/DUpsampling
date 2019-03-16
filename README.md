@@ -26,7 +26,7 @@ Most recurrent update:
 
 Plesae download VOC12_aug dataset and unzip the dataset into `data` folder.
 
-Please download MIT imagenet pretrained [resnet50-imagenet.pth](http://sceneparsing.csail.mit.edu/model/pretrained_resnet/resnet50-imagenet.pth), and put it into `checkpoints` folder.
+Please download imagenet pretrained [resnet50-imagenet.pth](https://download.pytorch.org/models/resnet50-19c8e357.pth), and put it into `checkpoints` folder.
 
 Please modify your configuration in `options/base options.py`.
 

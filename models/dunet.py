@@ -135,18 +135,19 @@ class ResNet(nn.Module):
     def __init__(self, block, layers):
         self.inplanes = 128
         super(ResNet, self).__init__()
-        self.conv1 = conv3x3(3, 64, stride=2)
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
+                               bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.relu1 = nn.ReLU(inplace=False)
-        self.conv2 = conv3x3(64, 64)
-        self.bn2 = nn.BatchNorm2d(64)
-        self.relu2 = nn.ReLU(inplace=False)
-        self.conv3 = conv3x3(64, 128)
+        # self.conv2 = conv3x3(64, 64)
+        # self.bn2 = nn.BatchNorm2d(64)
+        # self.relu2 = nn.ReLU(inplace=False)
+        # self.conv3 = conv3x3(64, 128)
         # self.conv3 = DeformConv(64, 128, (3, 3), stride=1, padding=1, num_deformable_groups=1)
         # self.conv3_deform = conv3x3(64, 2 * 3 * 3)
 
-        self.bn3 = nn.BatchNorm2d(128)
-        self.relu3 = nn.ReLU(inplace=False)
+        # self.bn3 = nn.BatchNorm2d(128)
+        # self.relu3 = nn.ReLU(inplace=False)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
         self.relu = nn.ReLU(inplace=False)
@@ -178,8 +179,8 @@ class ResNet(nn.Module):
     def forward(self, x):
         # input 528 * 528
         x = self.relu1(self.bn1(self.conv1(x)))  # 264 * 264
-        x = self.relu2(self.bn2(self.conv2(x)))  # 264 * 264
-        x = self.relu3(self.bn3(self.conv3(x)))  # 264 * 264
+        # x = self.relu2(self.bn2(self.conv2(x)))  # 264 * 264
+        # x = self.relu3(self.bn3(self.conv3(x)))  # 264 * 264
         
         x_13 = x
         x = self.maxpool(x)  # 66 * 66

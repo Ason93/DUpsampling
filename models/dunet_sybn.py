@@ -235,6 +235,7 @@ class Decoder(nn.Module):
         x_4_cat = self.conv4(x_4_cat)
 
         out = self.dupsample(x_4_cat)
+        # out = F.interpolate(x_4_cat, [528, 528], mode='bilinear', align_corners=True)
         out = out / self.T
         return out
 
